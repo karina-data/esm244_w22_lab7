@@ -94,5 +94,67 @@ sesbania_sf <- read_sf(here("data", "red_sesbania", "ds80.shp")) %>%
 ```
 
 
+```{r}
+# check CRS:
 
+sesbania_sf %>% st_crs()
+sesbania_sf %>% raster::crs()
+
+# different coord ref systems
+
+## if you know the EPSG code (4-5 digit #)
+sesbania_3857_sf <- st_transform(sesbania_sf, 3857)
+
+## if you don't know EPSG code
+sesbania_3857_2_sf <- st_transform(sesbania_sf, st_crs(ca_subset_sf)) # based on crs from other subset data
+
+# check new CRS
+sesbania_3857_sf %>% st_crs()
+```
+
+
+#### plot them together
+
+
+```{r}
+
+ggplot() +
+  geom_sf(data = ca_subset_sf) + # this layer will show up first
+  geom_sf(data = sesbania_3857_sf, size = 1, color = "red") +
+  theme_classic()
+
+```
+
+how many instances of each plant are there in each county?
+
+```{r}
+# wrangle to find sesbania observations per county
+
+ca_sesb_sf <- ca_subset_sf %>% 
+  st_join(sesbania_3857_sf)
+
+head(ca_sesb_sf)
+```
+
+which county has biggest problem with the invasive plant?
+
+```{r}
+
+sesb_counts_sf <- ca_sesb_sf %>% 
+  group_by(county_name) %>% 
+  summarize(n_records = sum(!is.na(id))) # add column to count when not NA in column, so if no records, will output as zero, and rest will count/sum
+
+head(sesb_counts_sf)
+```
+
+#### plot it!
+
+```{r}
+ggplot(data = sesb_counts_sf) +
+  geom_sf(aes(fill = n_records), color = "black", size = 0.1) +
+  scale_fill_gradientn(colors = c("lightgrey", "orange", "red")) +
+  theme_minimal() +
+  labs(fill = "Number of S. punicea records")
+
+```
 
