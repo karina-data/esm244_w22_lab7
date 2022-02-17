@@ -1,0 +1,47 @@
+---
+title: "ESM 244 - Lab 7 - Part 2 - Spatial Kriging"
+author: "Karina Johnston"
+date: "2/17/2022"
+output: html_document
+---
+
+```{r setup, include = TRUE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+# Attach packages
+library(tidyverse)
+library(here)
+
+# For mapping
+library(sf) # single feature mapping
+library(tmap) # interactive map
+library(gstat) # geospatial statistics
+library(stars) # geospatial raster package
+
+# originally had separate vector and raster packages - used to be clunky, vector turned into sf package, stars turned into the new raster package - spatio-temporal arrays?
+
+```
+
+## Lab 7 - Part 2 - Spatial Kriging
+
+Read in the California depth to groundwater data
+
+**Data source:** California Department of Water Resources. (2016). Groundwater Depth, California, Fall 2013. California Department of Water Resources. Available at: http://purl.stanford.edu/py212tb3061.
+
+These data are measurements for depth to groundwater recorded in 2013. We'll read in the layer with `read_sf()`, check the CRS, then make a quick plot to start
+
+```{r}
+
+# Read in the CA county data (TIGER shapefile):
+ca_counties_sf <- read_sf(here("data/ca_counties"), layer = "CA_Counties_TIGER2016") %>% 
+  janitor::clean_names() %>% 
+  select(name)
+
+# Check the projection
+st_crs(ca_counties_sf)
+
+
+
+```
+
+
