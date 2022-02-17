@@ -8,14 +8,88 @@ output:
     theme: cerulean
 ---
 
-### Lab 7 - Spatial Analyses
+## Lab 7 - Spatial Analyses
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, include=TRUE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 
+# Attach packages
 library(here)
 library(tidyverse)
-library()
+library(broom)
+
+# Spatial packages
+library(sf)
+library(tmap) # can turn into an interactive map
+
+```
+
+### Part 1: Spatial Data Wrangling, Visualization
+
+Coordinate reference systems - how to change
+focusing on vector data today (not raster, but could do next week)
+
+#### CA County Outlines (polygons)
+
+```{r}
+# read in the data
+
+ca_counties_sf <- read_sf(here("data/ca_counties/CA_Counties_TIGER2016.shp")) # note this is a simple features object - not a dataframe 
+
+```
+
+
+wrangling
+
+```{r}
+ca_subset_sf <- ca_counties_sf %>% 
+  janitor::clean_names() %>%
+  select(county_name = name, land_area = aland)
+
+head(ca_subset_sf) ### WARN AGAINST View()
+```
+
+Take a look at `ca_subset_sf`. We should notice something very important about a simple features (sf) object: it just **assumes** you want to keep the spatial information, and you can work with the rest of the data as if it's a non-spatial data frame (and the spatial information just "sticks" - hence the term "sticky geometry"). So even though we only called (and renamed) `name` and `aland` in the `select()` function, we see that the `geometry` column still exists! 
+
+What if we wanted just the dataframe, without the geometry?  Convert to dataframe and select out the geometry column:
+
+```{r}
+ca_counties_df <- ca_counties_sf %>%
+  as.data.frame() %>%
+  select(-geometry)
+```
+
+
+#### Check and set the CRS
+
+Use `st_crs()` to check the existing CRS for spatial data. We see that this CRS is "pseudo-mercator" based on WGS 84 - primarily used for web mapping, not analysis.  WGS84 (epsg:3857), also note proj4 string and WKT definitions.
+
+Need to be in the same Coordinate Reference Systems (CRS)
+
+```{r}
+ca_subset_sf %>% st_crs()
+ca_subset_sf %>% raster::crs() ### to show proj4 string
+```
+
+lets plot it
+
+```{r}
+ggplot(data = ca_subset_sf) +
+  geom_sf(aes(fill = land_area), color = "black", size = 0.1) +
+  theme_void() + # takes everything away except a white background
+  scale_fill_gradientn(colors = c("cyan", "blue", "purple"))
+
+```
+
+
+#### Invasive Red sesbania records (spatial points)
+
+read in the data
+
+```{r}
+
+sesbania_sf <- read_sf(here("data", "red_sesbania", "ds80.shp")) %>% 
+  janitor::clean_names()
 
 ```
 
