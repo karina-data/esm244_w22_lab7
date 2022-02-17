@@ -158,3 +158,44 @@ ggplot(data = sesb_counts_sf) +
 
 ```
 
+#### check out data points just in Solano County
+
+```{r}
+## subset the data based on Solano County
+
+solano_sesb_sf <- sesbania_3857_sf %>% 
+  filter(county == "Solano")
+
+# only keep the solano polygon
+solano_sf <- ca_subset_sf %>% 
+  filter(county_name == "Solano")
+
+# plot them together
+ggplot() +
+  geom_sf(data = solano_sf) +
+  geom_sf(data = solano_sesb_sf, color = "darkblue") +
+  theme_classic()
+
+```
+
+before we were doing static maps... 
+
+### use the tmap package (interactive)
+
+Sometimes we'll want to make a map interactive so that audience members can zoom in, explore different areas, etc. We can use the {tmap} package to create an interactive map. Let's make one for our California counties (fill aesthetic by land area) with the red sesbania locations on top:
+
+
+```{r}
+# set viewing mode to 'interactive'
+tmap_mode(mode = "view")
+
+# start with a static map
+tm_shape(ca_subset_sf) + # start with a shape 
+  tm_fill("land_area", palette = "BuGn") + # add a fill and other aesthetics
+tm_shape(sesbania_3857_sf) +
+  tm_dots(size = 0.1)
+
+```
+
+### end of part 1
+
