@@ -1,0 +1,24 @@
+---
+title: "ESM 244 - Lab 7 - Spatial Analyses"
+author: "Karina Johnston"
+date: "2/17/2022"
+output: 
+  html_document: 
+    toc: yes
+    theme: cerulean
+---
+
+### Lab 7 - Spatial Analyses
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(here)
+library(tidyverse)
+library()
+
+```
+
+
+
+
