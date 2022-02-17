@@ -192,10 +192,19 @@ tmap_mode(mode = "view")
 # start with a static map
 tm_shape(ca_subset_sf) + # start with a shape 
   tm_fill("land_area", palette = "BuGn") + # add a fill and other aesthetics
+  tm_borders(col = "black") + # change borders
 tm_shape(sesbania_3857_sf) +
   tm_dots(size = 0.1)
 
 ```
 
+See: 
+
+- [`tmap` vignettes](https://cran.r-project.org/web/packages/tmap/vignettes/tmap-getstarted.html)
+- [Chapter 8 in Robin Lovelace's "Geocomputation in R"](https://geocompr.robinlovelace.net/adv-map.html#interactive-maps) 
+
+
 ### end of part 1
+
+Part 2 in other file
 
