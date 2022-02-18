@@ -13,7 +13,7 @@ library(tidyverse)
 library(here)
 
 # For mapping
-library(sf) # single feature mapping
+library(sf) # simple feature mapping
 library(tmap) # interactive map
 library(gstat) # geospatial statistics
 library(stars) # geospatial raster package
@@ -24,24 +24,190 @@ library(stars) # geospatial raster package
 
 ## Lab 7 - Part 2 - Spatial Kriging
 
-Read in the California depth to groundwater data
-
 **Data source:** California Department of Water Resources. (2016). Groundwater Depth, California, Fall 2013. California Department of Water Resources. Available at: http://purl.stanford.edu/py212tb3061.
 
 These data are measurements for depth to groundwater recorded in 2013. We'll read in the layer with `read_sf()`, check the CRS, then make a quick plot to start
 
+Read in the California depth to groundwater data
+
+
 ```{r}
 
 # Read in the CA county data (TIGER shapefile):
-ca_counties_sf <- read_sf(here("data/ca_counties"), layer = "CA_Counties_TIGER2016") %>% 
-  janitor::clean_names() %>% 
+ca_counties_sf <- read_sf(here("data/ca_counties"), 
+                          layer = "CA_Counties_TIGER2016") %>% 
+  janitor::clean_names() %>% # clean up the headers
   select(name)
 
 # Check the projection
 st_crs(ca_counties_sf)
 
 
+# read in the groundwater depth data
+# .gpkg = geopackage file - more condensed way of storing and only one file!
+
+ca_dgw_sf <- read_sf(here("data/ca_dgw", 
+                          "F2013_DBGS_Points_20150720_093252.gpkg")) %>% 
+  janitor::clean_names()
+
+# check CRS
+st_crs(ca_dgw_sf)
+
+ca_dgw_sf <- st_transform(ca_dgw_sf, st_crs(ca_counties_sf))
 
 ```
 
+map it to check out the raw data
+
+```{r}
+ggplot() +
+  geom_sf(data = ca_counties_sf) +
+  geom_sf(data = ca_dgw_sf, aes(color = dgbs)) + # map color to groundwater depth
+  theme_classic()
+
+```
+
+interactive map using `tmap`
+
+```{r}
+tmap_mode(mode = "view")
+
+tm_shape(ca_dgw_sf) +
+  tm_dots("dgbs", palette = "Blues")
+# note - no CA map here, Leaflet does that for us
+
+### check out all the palettes:
+# tmaptools::palette_explorer() ### need package shinyjs
+```
+
+clip the map to San Joaquin county
+
+```{r}
+sj_county_sf <- ca_counties_sf %>% 
+  filter(name == "San Joaquin")
+
+# now keep groundwater obs in just that county
+# take two spatial data sets and intersect them - drops anything with one of them outside the layer - take only the overlap
+
+sj_depth_sf <- ca_dgw_sf %>% 
+  st_intersection(sj_county_sf)
+
+```
+
+
+```{r}
+ggplot() +
+  geom_sf(data = sj_county_sf) +
+  geom_sf(data = sj_depth_sf, aes(color = dgbs)) +
+  theme_classic() +
+  scale_color_viridis_c()
+
+```
+
+now use the map from above to create a variogram that uses interpolation to connect the data points spatially
+
+but first, need to double check for overlap in points - it will mess up the variogram!
+called: "spatial singularity"
+
+#### check for duplicate locations
+
+```{r}
+well_duplicates <- sj_depth_sf %>% # create a new df
+  janitor::get_dupes(latitude, longitude) # check for multiples
+
+# now just drop them (could average them or something else, but going easy for now)
+sj_depth_sf <- sj_depth_sf %>% 
+  filter(!local_well %in% well_duplicates$local_well) # drop the ones from the duplicates df
+
+```
+
+### Make a Variogram
+
+```{r}
+# use the gstat package
+
+# new df, variable dgbs as a function of 1, says mean is constant using data - ordinary kriging - know mean is constant but don't know what it is - tell it to do orginary kriging
+
+sj_dgw_vgm <- gstat::variogram(dgbs ~ 1, data = sj_depth_sf) 
+
+plot(sj_dgw_vgm) # not super clean because doesn't level off, but will work with it
+
+# need to know nugget (y-intercept), range (point at which you reach the sill), sill (leveling off - may not be able to see it)
+```
+
+
+```{r}
+# create a variogram model by fitting the variogram to the points
+# potential models: gaussian, spherical, exponential, others?
+
+sj_dgw_vgm_fit <- gstat::fit.variogram(sj_dgw_vgm,
+                                       model = vgm(model = "Gau",
+                                                   nugget = 15,
+                                                   sill = 3000,
+                                                   range = 32000)) # distance in m
+
+# now plot on top of other one
+
+plot(sj_dgw_vgm, sj_dgw_vgm_fit)
+# ok fit, but not perfect, would be stronger if we give it values for sill, range, nugget
+
+# now that we've added specifics about the values to the variogram, it's a better fit model
+
+attr(sj_dgw_vgm_fit, "SSErr") # whats the sum of square errors for the particular fit
+# can compare the different models
+```
+
+
+### Spatial Kriging
+
+now our model is set up, we can come up with the weighted average for the groundwater depth
+
+```{r}
+# set up a grid
+
+# start by setting up a bounding box against the county
+sj_grid <- st_bbox(sj_county_sf) %>% 
+  st_as_stars(dx = 1000, # distance in x
+                     dy = 1000 # distance in y
+                     )  %>% 
+  st_set_crs(st_crs(sj_county_sf)) %>% 
+  st_crop(sj_county_sf)
+
+sj_grid
+
+plot(sj_grid)
+
+```
+
+### Perform Ordinary Kriging
+
+```{r}
+sj_dgw_krige <- gstat::krige(formula = dgbs ~ 1, 
+                             sj_depth_sf, 
+                             sj_grid,
+                             model = sj_dgw_vgm_fit)
+
+plot(sj_dgw_krige)
+```
+
+convert to a spatial data frame that we can plot
+
+```{r}
+krige_df <- as.data.frame(sj_dgw_krige) %>% 
+  st_as_sf(coords = c("x", "y")) %>% # convert to simple features object
+  drop_na(var1.pred)
+
+```
+
+plot it
+
+```{r}
+ggplot(data = krige_df) +
+  geom_sf(aes(color = var1.pred)) +
+  scale_color_gradient(low = "blue", high = "yellow") +
+  theme_classic()
+
+```
+
+### End part 2!
 
